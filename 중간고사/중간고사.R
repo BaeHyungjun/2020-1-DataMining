@@ -1,0 +1,131 @@
+# 20152410 배형준 Data Mining midterm
+
+
+
+
+##### 1. Use the attached "\MID2020Sdata.txt" to answer the following questions.
+
+data1 = read.csv('./중간고사/MID2020Sdata.txt', header=TRUE, sep=' ')
+student = 20152410
+
+
+
+
+### (a) Calculate the correlation coeffcient of x and y with a bootstrap bias estimate and a bootstrap standard error.
+
+library(boot)
+
+my_cor = function(dataset, index){
+  data = dataset[index, ]
+  correlation = boot::corr(data)
+  return(correlation)
+}
+
+set.seed(student)
+boot_corr = boot(data1, statistic=my_cor, R=5000)
+hist(boot_corr$t, main='Histogram of bootstrap correlation')
+boot_corr
+
+
+
+
+### (b) Construct 95% bootstrap confidence intervals.
+
+boot_corr_ci = boot.ci(boot_corr, conf=0.95)
+boot_corr_ci
+
+
+
+
+##### 2. Use "Hitters" data in ISLR package to answer the following questions. Consider a binary response whether a player's salary is greater than or equal to 750.
+
+library(ISLR)
+data2 = na.omit(ISLR::Hitters)
+
+
+
+
+### (a) Use all predictors and construct a naive Bayes classifier. Report a 10-foldCV classification error.
+#저번 과제에선 구현해서 돌려봤으니 이번엔 이미 짜여진 함수를 사용해보려고 한다.
+
+library(dplyr)
+library(e1071)
+library(caret)
+library(klaR)
+
+data2_bs = data2 %>%
+  mutate(binary_salary = as.factor(ifelse(Salary >= 750, 1, 0))) %>% 
+  dplyr::select(-Salary)
+
+set.seed(student)
+fit_nb = train(form=binary_salary ~.,
+               data=data2_bs,
+               method='nb',
+               trControl=trainControl(method='cv', number=10))
+
+#model_naiveBayes = naiveBayes(binary_salary ~ ., data=data2_bs)
+
+fit_nb$resample
+mean(fit_nb$resample$Accuracy) # final CV accuracy of naiveBayes
+
+
+
+
+### (b) Use all predictors and construct a logit model classifier. Report a 10-fold CV classification error.
+
+set.seed(student)
+fit_logit = train(form=binary_salary ~.,
+                  data=data2_bs,
+                  method='glm',
+                  family='binomial',
+                  trControl=trainControl(method='cv', number=10))
+
+#model_logit = glm(binary_salary ~., data=data2_bs, family='binomial')
+
+fit_logit$resample
+mean(fit_logit$resample$Accuracy)
+
+
+
+
+##### 3. Suppose a categorical response Y can take on 1, 2, or 3. We have two categorical predictors X1 and X2. X1 has two levels, denoted by "A" and "B". X2 has three levels, denoted by "a", "b", and "c". A training data set consists of 50 observations as follow:
+
+Y = as.factor(c(rep(1, 10), rep(2, 20), rep(3, 20)))
+X1_1 = c(rep('A', 4+1), rep('B', 1+4))
+X1_2 = c(rep('A', 2+1+7), rep('B', 1+8+1))
+X1_3 = c(rep('A', 2+4+2), rep('B', 9+1+2))
+X1 = c(X1_1, X1_2, X1_3)
+X2_1 = c(rep('a', 4), rep('b', 1), rep('b', 1), rep('c', 4))
+X2_2 = c(rep('a', 2), rep('b', 1), rep('c', 7), rep('a', 1), rep('b', 8), rep('c', 1))
+X2_3 = c(rep('a', 2), rep('b', 4), rep('c', 2), rep('a', 9), rep('b', 1), rep('c', 2))
+X2 = c(X2_1, X2_2, X2_3)
+
+data3 = data.frame('Y'=Y, 'X1'=X1, 'X2'=X2)
+
+
+
+
+### (a) Construct Bayes classifier table for Y hat.
+
+library(nnet)
+
+model_multinom = multinom(Y ~ X1 * X2, data=data3)
+model_multinom
+
+Yhat = predict(model_multinom, data3[, c('X1', 'X2')])
+confusionMatrix(table(data3[, 'Y'], Yhat))
+
+
+
+
+### (b) Calculate the LOOCV classification error rate for Yhat.
+
+error_rate = c()
+
+for (i in 1:length(data3[, 'Y'])){
+  model_multinomial = multinom(Y ~ X1 * X2, data=data3[-i, ])
+  pred = predict(model_multinomial, newdata=data3[i, ])
+  error_rate[i] = ifelse(data3[i, 'Y']==pred, 0, 1)
+}
+
+mean(error_rate)
