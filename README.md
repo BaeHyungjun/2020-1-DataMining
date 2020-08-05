@@ -1,1 +1,1 @@
-# 2020_1_Data_Mining
+# 2020_1_DataMining
